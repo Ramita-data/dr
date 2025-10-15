@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>DreamPop Therapy — Advanced</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#8b7cff">
+
+<style>
+  :root{--bg:#0b0920; --ui:#ffffffcc; --accent:#8b7cff;}
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;}
+  #game-container{width:100%;height:100vh;display:flex;flex-direction:column;}
+  #topbar{display:flex;gap:8px;align-items:center;padding:8px;background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);color:var(--ui);}
+  .btn{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.06);padding:6px 10px;border-radius:10px;color:var(--ui);cursor:pointer}
+  .small{font-size:13px;padding:4px 8px;border-radius:8px}
+  #hud{margin-left:auto;display:flex;gap:8px;align-items:center}
+  #custom-panel{position:fixed;right:12px;top:72px;background:rgba(0,0,0,0.5);padding:12px;border-radius:12px;color:var(--ui);backdrop-filter:blur(6px);}
+  label{display:block;font-size:12px;margin-bottom:6px}
+  input[type=color]{width:48px;height:34px;padding:0;border:0;background:none;cursor:pointer}
+  #daily-timer{font-weight:600}
+  #credits{position:fixed;left:12px;bottom:12px;color:rgba(255,255,255,0.5);font-size:12px}
+  @media (max-width:600px){#topbar{padding:6px;font-size:13px}}
+</style>
+
+<!-- Phaser 3 CDN -->
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+<div id="game-container">
+  <div id="topbar">
+    <div style="display:flex;gap:8px;align-items:center">
+      <div style="font-weight:700;font-size:16px">DreamPop Therapy</div>
+      <div style="opacity:0.8;font-size:13px">— calm, pop, transform</div>
+    </div>
+    <div id="hud">
+      <button id="dailyBtn" class="btn small">Daily Calm (5m)</button>
+      <div id="daily-timer">00:00</div>
+      <button id="customBtn" class="btn small">Customize</button>
+      <button id="saveBtn" class="btn small">Save</button>
+    </div>
+  </div>
+
+  <div id="phaser-root" style="flex:1"></div>
+
+  <div id="custom-panel" style="display:none">
+    <label>Bubble Color</label>
+    <input id="colorPicker" type="color" value="#8b7cff"/>
+    <label style="margin-top:8px">Background Hue</label>
+    <input id="bgPicker" type="color" value="#0b0920"/>
+    <div style="margin-top:10px;display:flex;gap:6px">
+      <button id="applyCustom" class="btn small">Apply</button>
+      <button id="resetCustom" class="btn small">Reset</button>
+    </div>
+  </div>
+
+  <div id="credits">Starter • Phaser.js • Firebase Auth • Add PayPal/AdSense in header/footer</div>
+</div>
+
+<!-- PayPal Button -->
+<div id="paypal-button-container"></div>
+<script src="https://www.paypal.com/sdk/js?client-id=YOUR_CLIENT_ID"></script>
+<script>
+  paypal.Buttons({
+    createOrder: (data, actions) => actions.order.create({purchase_units: [{ amount: { value: '1.00' } }]}),
+    onApprove: (data, actions) => actions.order.capture().then(()=>alert('Thank you for your donation!'))
+  }).render('#paypal-button-container');
+</script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCE0ZDLVFEUdbNN_pm2QAAiQnRGvwHqooI",
+  authDomain: "dreampop-therapy.firebaseapp.com",
+  projectId: "dreampop-therapy",
+  storageBucket: "dreampop-therapy.firebasestorage.app",
+  messagingSenderId: "1033337317445",
+  appId: "1:1033337317445:web:a5fc7bd4d0994224349b2c",
+  measurementId: "G-1Y860SDEJX"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+
+function signUp(email,password){auth.createUserWithEmailAndPassword(email,password).then(u=>console.log("User registered:",u.user)).catch(e=>console.error(e.message));}
+function signIn(email,password){auth.signInWithEmailAndPassword(email,password).then(u=>console.log("User signed in:",u.user)).catch(e=>console.error(e.message));}
+
+function beep(freq=440,dur=0.06){
+  try{
+    const ctx=window.__dp_audio_ctx||(window.__dp_audio_ctx=new (window.AudioContext||window.webkitAudioContext)());
+    const o=ctx.createOscillator();
+    const g=ctx.createGain();
+    o.type='sine'; o.frequency.value=freq;
+    g.gain.value=0.02;
+    o.connect(g); g.connect(ctx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+dur);
+    setTimeout(()=>{o.stop();o.disconnect();g.disconnect()}, dur*1000+50);
+  }catch(e){}
+}
+
+const config={type:Phaser.AUTO,parent:'phaser-root',width:window.innerWidth,height:window.innerHeight-50,backgroundColor:'#0b0920',scene:{preload,create,update},scale:{mode:Phaser.Scale.RESIZE,autoCenter:Phaser.Scale.CENTER_BOTH}};
+const game=new Phaser.Game(config);
+let bubbles, particles, bubbleColor='#8b7cff', bgColor='#0b0920', isDailyMode=false, dailyEnd=0, dailyInterval, unlocks={quotes:0,sounds:0,art:0};
+function preload(){}
+function create(){}
+function update(time,dt){}
+</script>
+
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('service-worker.js')
+      .then(reg=>console.log('Service Worker registered.',reg))
+      .catch(err=>console.log('SW registration failed:',err));
+  });
+}
+</script>
+</body>
+</html>
